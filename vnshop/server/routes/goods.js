@@ -2,10 +2,11 @@ var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
 
-var Goods = require('../modules/goods');
-var User = require('../modules/user');
+var Goods = require('../models/goods');
+var User = require('../models/user');
 
 // 连接数据库
+// mongoose.connect('mongodb://47.93.231.75:27017/shop');
 mongoose.connect('mongodb://localhost:27017/shop');
 
 mongoose.connection.on('connected', function() {
@@ -23,66 +24,74 @@ mongoose.connection.on('disconnected', function() {
 })
 
 router.get('/', function(req, res, next) {
-    res.json('您现在访问的是goods api')
+    res.json({ data: '您现在访问的是goods api' })
 })
+
 router.get('/list', function(req, res, next) {
-	
-	let priceLevel = req.param('priceLevel');
-	
-	let currentPage = parseInt(req.param('page'))>0 ? parseInt(req.param('page')):0;
-	let pageSize = parseInt(req.param('pageSize')) > 0 ? parseInt(req.param('pageSize')):8;
-	
-	let skip = (currentPage -1)*pageSize;
-	
-	let sort = req.param('sort');
-	
-	let priceGt = '';
-	let priceLte = '';
-	let param ={};
-	if(priceLevel !='all'){
-		switch(priceLevel){
-			case '0':
-				priceGt = 0;
-				priceLte = 100;
-				break;
-			case '1':
-				priceGt = 100;
-				priceLte = 500;
-				break;
-			case '2':
-				priceGt = 500;
-				priceLte = 1000;
-				break;
-			case '3':
-				priceGt = 1000;
-				priceLte = 2000;
-				break;
-		}
-		param ={
-			salePrice:{
-				$gt:priceGt,
-				$lte:priceLte
-			}
-		}
-	}
-	let goodsModel = Goods.find(param).sort({
-		'salePrice':sort
-	}).skip(skip).limit(pageSize);
-    goodsModel.exec({},function(err,doc){
-    	if(err){
-    		res.json({status:'1',msg:err.message})
-    	}else{
-    		res.json({status:'0',msg:'',result:doc})
-    	}
+    // 根据前端传过来的数值，判断价格区间，然后去数据库里面查询
+    let priceLevel = req.param('priceLevel');
+    let currentPage = parseInt(req.param('page')) > 0 ? parseInt(req.param('page')) : 1;
+    let pageSize = parseInt(req.param('pageSize')) > 0 ? parseInt(req.param('pageSize')) : 8;
+
+    // 要跳过多少条
+    let skip = (currentPage - 1) * pageSize;
+
+    let sort = req.param('sort');
+    let priceGt = '',
+        priceLte = '';
+    let param = {};
+    if (priceLevel != 'all') {
+        // switch (priceLevel) {
+        //     case '0':
+        //         priceGt = 0;
+        //         priceLte = 100;
+        //         break;
+        //     case '1':
+        //         priceGt = 100;
+        //         priceLte = 500;
+        //         break;
+        //     case '2':
+        //         priceGt = 500;
+        //         priceLte = 1000;
+        //         break;
+        //     case '3':
+        //         priceGt = 1000;
+        //         priceLte = 2000;
+        //         break;
+        // }
+        // 表驱动法
+        let priceItem = [
+            [0, 100],
+            [100, 500],
+            [500, 1000],
+            [1000, 2000]
+        ];
+
+
+        param = {
+            salePrice: {
+                // $gt: priceGt,
+                // $lte: priceLte
+                $gt: priceItem[priceLevel][0],
+                $lte: priceItem[priceLevel][1]
+            }
+        }
+    }
+
+
+    let goodsModel = Goods.find(param);
+    goodsModel.sort({ 'salePrice': sort }).skip(skip).limit(pageSize);
+
+    goodsModel.exec({}, function(err, doc) {
+        if (err) {
+            res.json({ status: "1", msg: err.message })
+        } else {
+            res.json({ status: '0', msg: '', result: doc })
+        }
     })
-   /*goods.find({},function(err,doc){
-    	if(err){
-    		res.json({status:'1',msg:err.message})
-    	}else{
-    		res.json({status:'0',msg:'',result:doc})
-    	}
-    })*/
+
 })
+
 router.post('/addCart', function(req, res, next) {
     // 接收商品的id
     var productId = req.body.productId;
@@ -144,5 +153,4 @@ router.post('/addCart', function(req, res, next) {
 
     // 然后保存在用户里面
 })
-
 module.exports = router;

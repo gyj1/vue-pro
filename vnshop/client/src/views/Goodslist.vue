@@ -15,7 +15,7 @@
                 <div class="filter stopPop" id="filter">
                     <dl class="filter-price">
                         <dt>Price:</dt>
-                        <dd><a href="javascript:void(0)">All</a></dd>
+                        <dd><a href="javascript:void(0)" :class="{'cur':priceChecked == 'all'}"  @click="setPriceFilter('all')">All</a></dd>
                         <dd v-for="(item,index) in priceFilter" :key="index" class="cur">
                             <a @click="setPriceFilter(index)" :class="{'cur': priceChecked == index}" href="javascript:void(0)">{{item.startPrice}} - {{item.endPrice}}</a>
                         </dd>
@@ -28,7 +28,7 @@
                         <ul>
                             <li v-for="(item,index) in goods" :key="index">
                                 <div class="pic">
-                                    <a href="#"><img :src="'/static/img/' + item.productImage" alt=""></a>
+                                    <a href="#"><img v-lazy="'/static/img/' + item.productImage" alt=""></a>
                                 </div>
                                 <div class="main">
                                     <div class="name">{{item.productName}}</div>
@@ -39,8 +39,8 @@
                                 </div>
                             </li>
                             <div v-infinite-scroll="loadMore" infinite-scroll-disabled="busy" infinite-scroll-distance="10">
-							  ...
-							</div>
+                            ...
+                            </div>
                         </ul>
                     </div>
                 </div>
@@ -48,6 +48,23 @@
         </div>
     </div>
     <NavFooter/>
+    <!-- 在未登录的情况下 -->
+    <modal :mdShow="mdShow">
+        <p slot="message">请先登录，否则无法加入购物车</p>
+        <div slot="btnGroup">
+            <a href="javascript:;" class="btn  btn--m" @click="mdShow = false">关闭</a>
+        </div>
+    </modal>
+
+    <!-- 在登录的情况下 -->
+    <modal :mdShow="mdShowCart">
+        <p slot="message">加入购物车成功</p>
+        <div slot="btnGroup">
+            <a href="javascript:;" class="btn  btn--m" @click="mdShowCart = false">继续购物</a>
+            <router-link class="btn  btn--m" to="/cart">查看购物车列表</router-link>
+        </div>
+    </modal>
+
   </div>
 </template>
 
@@ -55,6 +72,7 @@
     import NavHeader from '@/components/Header'
     import NavFooter from '@/components/Footer'
     import NavBread from '@/components/NavBread'
+    import Modal from '@/components/Modal'
     import axios from 'axios'
     // import '../../static/css/base.css'
     // import '../../static/css/product.css'
@@ -62,17 +80,20 @@
         components:{
             NavHeader,
             NavFooter,
-            NavBread
+            NavBread,
+            Modal
         },
         data(){
             return {
                 goods:{},
                 sortFlag:true,
                 priceChecked:'all',
-                data:[],
-                busy:true,
+                data: [],
+                busy: true,
                 page:1,
                 pageSize:8,
+                mdShowCart:false,
+                mdShow:false,
                 priceFilter:[
                     {
                         startPrice:'0',
@@ -99,19 +120,15 @@
         ,
         methods:{
             getGoodsList(flag){
-                // axios.get('http://easy-mock.com/mock/59664d4d58618039284c7710/example/goods/list').then(res=>{
-                //     console.log(res);
-                //     this.goods = res.data.data;
-                // })
                 let sort = this.sortFlag ? 1 : -1;
-                let param ={
-                	sort:sort,
-                	priceLevel: this.priceChecked,
-                	page:this.page,
-                	pageSize:this.pageSize
+                let param = {
+                    sort:sort,
+                    priceLevel:this.priceChecked,
+                    page:this.page,
+                    pageSize:this.pageSize
                 }
                 axios.get('/goods/list',{params:param}).then(res=>{
-                	if(flag){
+                    if(flag){
                         // 多次加载数据
                         this.goods = this.goods.concat(res.data.result);
                         if(res.data.result.length == 0){
@@ -125,7 +142,6 @@
                         // 当第一次加载数据完之后，把这个滚动到底部的函数触发打开
                         this.busy = false;
                     }
-                    
                 })
             },
             sortGoods(){
@@ -134,6 +150,7 @@
             },
             setPriceFilter(index){
                 this.priceChecked = index;
+                this.page = 1; //设置了分页后在这每次筛选价格重置为第一页
                 this.getGoodsList();
             },
             loadMore: function() {
@@ -147,15 +164,13 @@
             addCart(productId){
                 axios.post('/goods/addCart',{productId:productId}).then(res=>{
                     console.log(res.data);
-                    if(res.data.status == 0){
-                        alert(res.data.result);
+                    if(res.data.status == 1){
+                        this.mdShow = true;
+                    }else{
+                        this.mdShowCart = true;
                     }
                 })
             }
         }
     }
 </script>
-	
-	
-<style>
-</style>
